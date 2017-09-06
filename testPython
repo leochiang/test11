@@ -1,0 +1,76 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Aug 02 15:16:13 2017
+
+@author: leo
+"""
+
+import paramiko
+import numpy as np
+
+def sshclient_execmd(hostname, port, username, password, execmd="ps -ef|grep mqueue|grep -v \"grep\"|grep -v \"statu_mqueue\""):
+    paramiko.util.log_to_file("paramiko.log")
+    #process_time = 'ps -eo  pid,lstart etime | grep'
+    
+    s = paramiko.SSHClient()
+    s.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    s.connect(hostname=hostname, port=port, username=username, password=password)
+    stdin, stdout, stderr = s.exec_command (execmd)
+    stdin.write("Y")  # Generally speaking, the first connection, need a simple interaction.
+    
+    strout =  stdout.read()
+  
+    save('out.txt', strout)         
+    #print strout
+    s.close()
+    pid = []
+    mask = []
+    time = []
+    date = []
+   
+    with open('out.txt') as f:
+        for line in f.readlines():
+            ll = line.split()
+            pid.append(ll[0])
+            time.append(ll[2])
+            date.append(ll[1])
+            if len(ll[2]) >8:
+                mask.append(1)
+            else:
+                mask.append(0)
+            
+            
+                
+    print 'pid',pid
+    print 'mask.num:',len(pid)
+   
+    return pid,mask,time,date
+    
+    
+def save(filename, contents): 
+  fh = open(filename, 'w') 
+  fh.write(contents) 
+  fh.close() 
+    
+def main():
+    
+    hostname = '172.24.1.196'
+    port = 22
+    username = 'mqm'
+    password = 'decnet'
+#    execmd = "ls"
+    code ="ps -A -opid,stime,etime,args|grep mqueue|grep -v \"grep\"|grep -v \"statu_mqueue\""
+    a = tuple()
+    a = sshclient_execmd(hostname, port, username, password, code)
+    mask = np.array(a[1])
+    pidd = np.array(a[0])
+    kill_list = pidd[mask>0]
+    #print kill_list
+    for id in kill_list:
+        kill = "kill -9 " + id
+        sshclient_execmd(hostname, port, username, password, kill)
+    #kill = "kill -9 " + a[0][0]
+    #sshclient_execmd(hostname, port, username, password, kill)
+if __name__ == "__main__":
+    main()
